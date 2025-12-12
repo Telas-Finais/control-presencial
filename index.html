@@ -11,19 +11,114 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-    <!-- Supabase JS Library - Carga BLOQUEANTE -->
+    <!-- Supabase DIRECTO - Sin librería externa -->
     <script>
-        console.log('⏳ Iniciando carga SÍNCRONA de Supabase...');
-    </script>
-    <script src="https://unpkg.com/@supabase/supabase-js@2.39.0/dist/umd/supabase.js"></script>
-    <script>
-        if (window.supabase) {
-            console.log('✅ Supabase cargado CORRECTAMENTE (modo síncrono)');
-            window.supabaseLoadedSuccessfully = true;
-        } else {
-            console.error('❌ Supabase NO se cargó');
-            window.supabaseLoadedSuccessfully = false;
-        }
+        console.log('🚀 Cargando Supabase Direct API...');
+        
+        const SUPABASE_URL = 'https://tpgeypsklfihdbdnzlcc.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZ2V5cHNrbGZpaGRiZG56bGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzNzU1MTEsImV4cCI6MjA4MDk1MTUxMX0.fdjbMgVEgyCGXCUJFz6wWuzyS_mfBsFLWmBwEfh1UM4';
+        
+        // Cliente Supabase simplificado usando fetch directo
+        window.supabaseDirect = {
+            // SELECT: Obtener datos
+            async select(table, options = {}) {
+                try {
+                    let url = `${SUPABASE_URL}/rest/v1/${table}`;
+                    const params = [];
+                    
+                    if (options.select) params.push(`select=${options.select}`);
+                    if (options.eq) {
+                        const [column, value] = options.eq;
+                        params.push(`${column}=eq.${value}`);
+                    }
+                    if (params.length) url += '?' + params.join('&');
+                    
+                    const response = await fetch(url, {
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': `Bearer ${SUPABASE_KEY}`
+                        }
+                    });
+                    
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const data = await response.json();
+                    return { data, error: null };
+                } catch (error) {
+                    return { data: null, error };
+                }
+            },
+            
+            // INSERT: Crear registros
+            async insert(table, records) {
+                try {
+                    const url = `${SUPABASE_URL}/rest/v1/${table}`;
+                    const body = Array.isArray(records) ? records : [records];
+                    
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': `Bearer ${SUPABASE_KEY}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify(body)
+                    });
+                    
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const data = await response.json();
+                    return { data, error: null };
+                } catch (error) {
+                    return { data: null, error };
+                }
+            },
+            
+            // UPDATE: Actualizar registros
+            async update(table, id, updates) {
+                try {
+                    const url = `${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`;
+                    
+                    const response = await fetch(url, {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': `Bearer ${SUPABASE_KEY}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify(updates)
+                    });
+                    
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const data = await response.json();
+                    return { data, error: null };
+                } catch (error) {
+                    return { data: null, error };
+                }
+            },
+            
+            // DELETE: Eliminar registros
+            async delete(table, id) {
+                try {
+                    const url = `${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`;
+                    
+                    const response = await fetch(url, {
+                        method: 'DELETE',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': `Bearer ${SUPABASE_KEY}`
+                        }
+                    });
+                    
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return { data: null, error: null };
+                } catch (error) {
+                    return { data: null, error };
+                }
+            }
+        };
+        
+        console.log('✅ Supabase Direct API lista');
     </script>
     <style>
         * {
@@ -902,74 +997,66 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // ========== SUPABASE CONFIGURATION ==========
-        const SUPABASE_URL = 'https://tpgeypsklfihdbdnzlcc.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRwZ2V5cHNrbGZpaGRiZG56bGNjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzNzU1MTEsImV4cCI6MjA4MDk1MTUxMX0.fdjbMgVEgyCGXCUJFz6wWuzyS_mfBsFLWmBwEfh1UM4';
+        // ========== SUPABASE CONFIGURATION (DIRECT API) ==========
+        const supabase = window.supabaseDirect;
+        let supabaseReady = true; // Siempre listo porque no depende de librería externa
         
-        let supabase = null;
-        let supabaseReady = false;
+        console.log('🔧 Inicializando Supabase Direct API...');
         
-        console.log('🔧 Inicializando Supabase...');
-        console.log('Window.supabase existe:', !!window.supabase);
-        console.log('Supabase cargado exitosamente:', window.supabaseLoadedSuccessfully);
-        
-        if (window.supabase && window.supabase.createClient) {
+        // Test de conexión
+        (async () => {
             try {
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                supabaseReady = true;
-                console.log('✅ Cliente Supabase creado correctamente');
-                console.log('🌐 URL:', SUPABASE_URL);
-                
-                // Test de conexión asíncrono
-                (async () => {
-                    try {
-                        const { data, error } = await supabase.from('workers').select('count');
-                        if (error) {
-                            console.warn('⚠️ Supabase conectado pero error en BD:', error.message);
-                        } else {
-                            console.log('✅ Base de datos accesible');
-                            console.log('🎉 SISTEMA COMPLETAMENTE FUNCIONAL');
-                        }
-                    } catch (testError) {
-                        console.warn('⚠️ No se pudo probar conexión:', testError.message);
-                    }
-                })();
-                
-            } catch (error) {
-                console.error('❌ Error creando cliente Supabase:', error);
+                const { data, error } = await supabase.select('workers', { select: 'id' });
+                if (error) {
+                    console.error('❌ Error conectando a Supabase:', error);
+                    console.log('💡 Verifica que las credenciales sean correctas');
+                } else {
+                    console.log('✅ Supabase conectado correctamente (API REST directa)');
+                    console.log('✅ Base de datos accesible');
+                    console.log('🎉 SISTEMA COMPLETAMENTE FUNCIONAL');
+                }
+            } catch (testError) {
+                console.error('❌ Error en test de conexión:', testError);
             }
-        } else {
-            console.error('❌ window.supabase NO está disponible');
-            console.log('💡 Causas posibles:');
-            console.log('   - Firewall de Windows bloqueando');
-            console.log('   - ISP bloqueando unpkg.com');
-            console.log('   - Problema de DNS');
-            console.log('');
-            console.log('🔧 Prueba manual:');
-            console.log('   Abre: https://unpkg.com/@supabase/supabase-js@2.39.0/dist/umd/supabase.js');
-            console.log('   Si se descarga → Problema de timing');
-            console.log('   Si NO se descarga → Problema de red');
-        }
+        })();
         
         // API global para testing
         window.supabaseTest = {
             check: () => {
-                console.log('=== DIAGNÓSTICO SUPABASE ===');
+                console.log('=== DIAGNÓSTICO SUPABASE (DIRECT API) ===');
                 console.log('Supabase ready:', supabaseReady);
-                console.log('Supabase client:', supabase);
-                console.log('Window.supabase:', window.supabase);
-                console.log('Carga exitosa:', window.supabaseLoadedSuccessfully);
-                console.log('========================');
-                return { 
-                    ready: supabaseReady, 
-                    client: supabase,
-                    windowSupabase: window.supabase,
-                    loadedSuccessfully: window.supabaseLoadedSuccessfully
+                console.log('Supabase Direct:', window.supabaseDirect);
+                console.log('Tipo:', 'API REST Directa (sin librería)');
+                console.log('========================================');
+                return {
+                    ready: supabaseReady,
+                    type: 'direct-api',
+                    client: window.supabaseDirect
                 };
+            },
+            testSelect: async () => {
+                console.log('🧪 Probando SELECT...');
+                const result = await supabase.select('workers');
+                console.log('Resultado:', result);
+                return result;
+            },
+            testInsert: async () => {
+                console.log('🧪 Probando INSERT...');
+                const testWorker = {
+                    name: 'Test Worker',
+                    email: 'test@test.com',
+                    role: 'worker',
+                    status: 'active'
+                };
+                const result = await supabase.insert('workers', testWorker);
+                console.log('Resultado:', result);
+                return result;
             }
         };
         
-        console.log('💡 Para diagnóstico completo: window.supabaseTest.check()');
+        console.log('💡 Para diagnóstico: window.supabaseTest.check()');
+        console.log('💡 Para probar SELECT: window.supabaseTest.testSelect()');
+        console.log('💡 Para probar INSERT: window.supabaseTest.testInsert()');
         
         // ========== END SUPABASE ==========
         
@@ -6023,91 +6110,4 @@
                                 {currentUser.usuario === 'gerencia' && (
                                     <button 
                                         className={`tab ${activeTab === 'audit' ? 'active' : ''}`}
-                                        onClick={() => setActiveTab('audit')}
-                                    >
-                                        {t('nav_audit')}
-                                    </button>
-                                )}
-                                <button 
-                                    className={`tab ${activeTab === 'qr' ? 'active' : ''}`}
-                                    onClick={() => setActiveTab('qr')}
-                                >
-                                    {t('nav_qr')}
-                                </button>
-                            </>
-                        )}
-                    </div>
-
-                    {activeTab === 'clock' && currentUser.role === 'worker' && (
-                        <WorkerApp 
-                            user={currentUser}
-                            clockings={clockings}
-                            onClocking={handleClocking}
-                        />
-                    )}
-
-                    {activeTab === 'fichar' && currentUser.role === 'admin' && (
-                        <WorkerApp 
-                            user={currentUser}
-                            clockings={clockings}
-                            onClocking={handleClocking}
-                        />
-                    )}
-
-                    {activeTab === 'monitor' && currentUser.role === 'admin' && (
-                        <MonitoringDashboard 
-                            clockings={clockings}
-                            absences={absences}
-                            workers={workers}
-                        />
-                    )}
-
-                    {activeTab === 'qr' && currentUser.role === 'admin' && (
-                        <AdminQRPanel />
-                    )}
-
-                    {activeTab === 'history' && currentUser.role === 'admin' && (
-                        <AdminHistory clockings={clockings} />
-                    )}
-
-                    {activeTab === 'stats' && currentUser.role === 'admin' && (
-                        <AdminStats clockings={clockings} workers={workers} absences={absences} />
-                    )}
-
-                    {activeTab === 'absences' && currentUser.role === 'admin' && (
-                        <AbsenceManagement 
-                            absences={absences}
-                            onUpdate={setAbsences}
-                        />
-                    )}
-
-                    {activeTab === 'gps' && currentUser.role === 'admin' && (
-                        <GPSManager 
-                            showNotification={showNotification}
-                        />
-                    )}
-
-                    {activeTab === 'users' && currentUser.role === 'admin' && (
-                        <UserManagement 
-                            showNotification={showNotification}
-                        />
-                    )}
-
-                    {activeTab === 'face-registration' && currentUser.role === 'admin' && (
-                        <FaceRegistration 
-                            currentUser={currentUser}
-                            showNotification={showNotification}
-                        />
-                    )}
-
-                    {activeTab === 'audit' && currentUser.role === 'admin' && currentUser.usuario === 'gerencia' && (
-                        <AuditLog currentUser={currentUser} />
-                    )}
-                </div>
-            );
-        };
-
-        ReactDOM.render(<App />, document.getElementById('root'));
-    </script>
-</body>
-</html>
+                                        onClick={() => se
