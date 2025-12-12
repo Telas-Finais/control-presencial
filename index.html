@@ -11,8 +11,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-    <!-- Supabase JS Library - LOCAL FILE -->
-    <script src="supabase.js"></script>
+    <!-- Supabase JS Library - CDN -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2.39.0/dist/umd/supabase.js"></script>
     <style>
         * {
             margin: 0;
@@ -897,14 +897,16 @@
         let supabase = null;
         let supabaseReady = false;
         
-        // Función para inicializar Supabase con reintentos
+        // Función para inicializar Supabase con reintentos MÁS LARGOS
         const initSupabase = async () => {
             let attempts = 0;
-            const maxAttempts = 10;
+            const maxAttempts = 20; // Más intentos
+            
+            console.log('🚀 Esperando que cargue Supabase desde CDN...');
             
             while (attempts < maxAttempts && !supabaseReady) {
                 attempts++;
-                console.log(`🔄 Intento ${attempts}/${maxAttempts} - Esperando Supabase...`);
+                console.log(`🔄 Intento ${attempts}/${maxAttempts} - Verificando window.supabase...`);
                 
                 if (window.supabase && window.supabase.createClient) {
                     try {
@@ -930,7 +932,8 @@
                         console.error('❌ Error creando cliente Supabase:', error);
                     }
                 } else {
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    // Esperar MÁS tiempo entre intentos
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // 1 segundo
                 }
             }
             
@@ -938,16 +941,17 @@
                 console.error('❌ Supabase no se pudo cargar después de ' + maxAttempts + ' intentos');
                 console.log('💡 Posibles causas:');
                 console.log('   1. Sin conexión a internet');
-                console.log('   2. Bloqueador de scripts activo');
-                console.log('   3. CDN no disponible');
-                console.log('   4. Verificar: https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+                console.log('   2. Bloqueador de scripts activo (AdBlock, uBlock, etc)');
+                console.log('   3. CDN bloqueado por firewall/antivirus');
+                console.log('   4. Verificar manualmente: https://unpkg.com/@supabase/supabase-js@2.39.0/dist/umd/supabase.js');
+                console.log('');
+                console.log('🔧 SOLUCIÓN TEMPORAL:');
+                console.log('   - Desactiva bloqueadores de anuncios');
+                console.log('   - Recarga la página (F5)');
             }
             
             return false;
         };
-        
-        // Inicializar después de cargar la página
-        setTimeout(initSupabase, 1000);
         
         // API global para testing
         window.supabaseTest = {
@@ -959,6 +963,9 @@
             },
             retry: initSupabase
         };
+        
+        // Inicializar INMEDIATAMENTE (no esperar)
+        initSupabase();
         
         console.log('💡 Para verificar Supabase ejecuta: window.supabaseTest.check()');
         console.log('💡 Para reintentar conexión: window.supabaseTest.retry()');
