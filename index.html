@@ -11,41 +11,19 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-    <!-- Supabase JS Library -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2.39.0/dist/umd/supabase.js"></script>
-    <!-- Pre-loader: Esperar a que Supabase esté disponible -->
+    <!-- Supabase JS Library - Carga BLOQUEANTE -->
     <script>
-        console.log('🔄 Pre-cargador: Esperando a que Supabase esté disponible...');
-        
-        // Esta función espera a que window.supabase exista
-        function waitForSupabase(callback) {
-            let attempts = 0;
-            const maxAttempts = 50;
-            
-            const checkInterval = setInterval(() => {
-                attempts++;
-                console.log(`⏳ Verificando Supabase (${attempts}/${maxAttempts})...`);
-                
-                if (window.supabase && window.supabase.createClient) {
-                    clearInterval(checkInterval);
-                    console.log('✅ Supabase detectado y listo!');
-                    callback();
-                } else if (attempts >= maxAttempts) {
-                    clearInterval(checkInterval);
-                    console.error('❌ Supabase no se cargó después de esperar');
-                    callback(); // Continuar de todos modos
-                }
-            }, 200); // Verificar cada 200ms
+        console.log('⏳ Iniciando carga SÍNCRONA de Supabase...');
+    </script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2.39.0/dist/umd/supabase.js"></script>
+    <script>
+        if (window.supabase) {
+            console.log('✅ Supabase cargado CORRECTAMENTE (modo síncrono)');
+            window.supabaseLoadedSuccessfully = true;
+        } else {
+            console.error('❌ Supabase NO se cargó');
+            window.supabaseLoadedSuccessfully = false;
         }
-        
-        // Marcar que estamos esperando
-        window.supabasePreloaderReady = false;
-        
-        // Esperar a que cargue
-        waitForSupabase(() => {
-            window.supabasePreloaderReady = true;
-            console.log('🚀 Pre-cargador completo. Sistema puede iniciar.');
-        });
     </script>
     <style>
         * {
@@ -931,72 +909,67 @@
         let supabase = null;
         let supabaseReady = false;
         
-        // Esperar a que el pre-loader confirme que Supabase está listo
-        const initSupabase = async () => {
-            console.log('🔄 Esperando a pre-cargador...');
-            
-            // Esperar a que el preloader termine
-            let preloaderAttempts = 0;
-            while (!window.supabasePreloaderReady && preloaderAttempts < 100) {
-                await new Promise(resolve => setTimeout(resolve, 100));
-                preloaderAttempts++;
-            }
-            
-            if (!window.supabase || !window.supabase.createClient) {
-                console.error('❌ Supabase no disponible después de pre-carga');
-                console.log('💡 El CDN puede estar bloqueado por:');
-                console.log('   - Firewall');
-                console.log('   - Antivirus (McAfee Total Protection)');
-                console.log('   - Configuración de red corporativa');
-                return false;
-            }
-            
+        console.log('🔧 Inicializando Supabase...');
+        console.log('Window.supabase existe:', !!window.supabase);
+        console.log('Supabase cargado exitosamente:', window.supabaseLoadedSuccessfully);
+        
+        if (window.supabase && window.supabase.createClient) {
             try {
                 supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
                 supabaseReady = true;
-                console.log('✅ Supabase conectado correctamente');
+                console.log('✅ Cliente Supabase creado correctamente');
                 console.log('🌐 URL:', SUPABASE_URL);
                 
-                // Test de conexión
-                try {
-                    const { data, error } = await supabase.from('workers').select('count');
-                    if (error) {
-                        console.warn('⚠️ Supabase conectado pero hay un error:', error.message);
-                    } else {
-                        console.log('✅ Base de datos accesible');
-                        console.log('🎉 Sistema completamente funcional');
+                // Test de conexión asíncrono
+                (async () => {
+                    try {
+                        const { data, error } = await supabase.from('workers').select('count');
+                        if (error) {
+                            console.warn('⚠️ Supabase conectado pero error en BD:', error.message);
+                        } else {
+                            console.log('✅ Base de datos accesible');
+                            console.log('🎉 SISTEMA COMPLETAMENTE FUNCIONAL');
+                        }
+                    } catch (testError) {
+                        console.warn('⚠️ No se pudo probar conexión:', testError.message);
                     }
-                } catch (testError) {
-                    console.warn('⚠️ No se pudo probar la conexión:', testError.message);
-                }
+                })();
                 
-                return true;
             } catch (error) {
                 console.error('❌ Error creando cliente Supabase:', error);
-                return false;
             }
-        };
+        } else {
+            console.error('❌ window.supabase NO está disponible');
+            console.log('💡 Causas posibles:');
+            console.log('   - Firewall de Windows bloqueando');
+            console.log('   - ISP bloqueando unpkg.com');
+            console.log('   - Problema de DNS');
+            console.log('');
+            console.log('🔧 Prueba manual:');
+            console.log('   Abre: https://unpkg.com/@supabase/supabase-js@2.39.0/dist/umd/supabase.js');
+            console.log('   Si se descarga → Problema de timing');
+            console.log('   Si NO se descarga → Problema de red');
+        }
         
         // API global para testing
         window.supabaseTest = {
             check: () => {
+                console.log('=== DIAGNÓSTICO SUPABASE ===');
                 console.log('Supabase ready:', supabaseReady);
-                console.log('Supabase object:', supabase);
+                console.log('Supabase client:', supabase);
                 console.log('Window.supabase:', window.supabase);
-                console.log('Preloader ready:', window.supabasePreloaderReady);
+                console.log('Carga exitosa:', window.supabaseLoadedSuccessfully);
+                console.log('========================');
                 return { 
                     ready: supabaseReady, 
                     client: supabase,
-                    preloaderReady: window.supabasePreloaderReady
+                    windowSupabase: window.supabase,
+                    loadedSuccessfully: window.supabaseLoadedSuccessfully
                 };
-            },
-            retry: initSupabase
+            }
         };
         
-        // Inicializar inmediatamente
-        initSupabase();
-        
-        console.log('💡 Para verificar Supabase ejecuta: window.supabaseTest.check()');
+        console.log('💡 Para diagnóstico completo: window.supabaseTest.check()');
         
         // ========== END SUPABASE ==========
         
