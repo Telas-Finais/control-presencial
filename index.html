@@ -6124,16 +6124,46 @@
                         const clockingsResult = await window.supabaseDirect.select('clockings');
                         if (clockingsResult.data && clockingsResult.data.length > 0) {
                             // Convertir formato Supabase a formato local
-                            const formattedClockings = clockingsResult.data.map(c => ({
-                                id: c.id,
-                                workerId: c.worker_id,
-                                type: c.tipo === 'entrada' ? 'in' : 'out',
-                                timestamp: new Date(c.timestamp),
-                                gpsValid: c.dentro_rango,
-                                distance: c.distancia_metros
+                            const formattedClockings = await Promise.all(clockingsResult.data.map(async (c) => {
+                                // Buscar nombre del trabajador
+                                const worker = formattedWorkers.find(w => w.id === c.worker_id);
+                                
+                                // Buscar nombre de la obra
+                                let worksiteName = 'Desconocida';
+                                try {
+                                    const worksiteResult = await window.supabaseDirect.select('worksites', {
+                                        eq: ['id', c.worksite_id]
+                                    });
+                                    if (worksiteResult.data && worksiteResult.data.length > 0) {
+                                        worksiteName = worksiteResult.data[0].nombre;
+                                    }
+                                } catch (err) {
+                                    console.warn('Error cargando nombre obra:', err);
+                                }
+                                
+                                return {
+                                    id: c.id,
+                                    userId: c.worker_id,
+                                    userName: worker?.nombre || 'Desconocido',
+                                    workerId: c.worker_id,
+                                    type: c.tipo === 'entrada' ? 'in' : 'out',
+                                    timestamp: new Date(c.timestamp || c.created_at),
+                                    worksite: c.worksite_id,
+                                    worksiteName: worksiteName,
+                                    location: {
+                                        lat: c.worker_lat,
+                                        lng: c.worker_lng
+                                    },
+                                    distance: c.distancia_metros,
+                                    gpsValid: c.dentro_rango,
+                                    faceRecognized: false,
+                                    photo: null
+                                };
                             }));
                             setClockings(formattedClockings);
                             console.log('✅ Fichajes cargados desde Supabase:', formattedClockings.length);
+                        } else {
+                            console.log('ℹ️ No hay fichajes en Supabase');
                         }
                         
                     } catch (error) {
