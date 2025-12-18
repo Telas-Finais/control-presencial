@@ -6258,65 +6258,144 @@
             };
 
             const handleClocking = async (clocking) => {
-                // Guardar en Supabase
-                try {
-                    // Buscar el ID de la obra en Supabase por nombre
-                    let worksiteIdNumeric = null;
+                // MODO DEBUG: Mostrar alertas visibles para diagnóstico
+                const DEBUG_MODE = true; // Cambiar a false cuando se resuelva
+                
+                // Mostrar indicador de guardado
+                showNotification('⏳ Guardando fichaje en servidor...', 'info');
+                
+                if (DEBUG_MODE) alert('🔍 DEBUG: Iniciando guardado...');
+                
+                // OBLIGATORIO: Guardar en Supabase - NO permitir fichaje si falla
+                let savedSuccessfully = false;
+                let attempts = 0;
+                const maxAttempts = 3;
+                let lastError = '';
+                
+                while (attempts < maxAttempts && !savedSuccessfully) {
+                    attempts++;
                     
                     try {
+                        if (DEBUG_MODE) alert(`🔍 DEBUG: Intento ${attempts}/3`);
+                        console.log(`📤 Intento ${attempts}/${maxAttempts} - Guardando en Supabase...`);
+                        
+                        // Buscar el ID de la obra en Supabase por nombre
+                        let worksiteIdNumeric = null;
+                        
+                        if (DEBUG_MODE) alert('🔍 DEBUG: Buscando obra en Supabase...');
+                        
                         const worksitesResult = await window.supabaseDirect.select('worksites');
+                        
+                        if (DEBUG_MODE) {
+                            alert(`🔍 DEBUG: Obras recibidas: ${worksitesResult.data ? worksitesResult.data.length : 0}`);
+                        }
+                        
                         if (worksitesResult.data && worksitesResult.data.length > 0) {
                             const worksite = worksitesResult.data.find(w => w.nombre === clocking.worksiteName);
                             if (worksite) {
                                 worksiteIdNumeric = worksite.id;
-                                console.log(`📍 Obra encontrada en Supabase: ${clocking.worksiteName} → ID: ${worksiteIdNumeric}`);
+                                console.log(`📍 Obra encontrada: ${clocking.worksiteName} → ID: ${worksiteIdNumeric}`);
+                                if (DEBUG_MODE) alert(`🔍 DEBUG: Obra encontrada ID=${worksiteIdNumeric}`);
                             } else {
-                                console.warn(`⚠️ Obra "${clocking.worksiteName}" no encontrada en Supabase`);
+                                lastError = `Obra "${clocking.worksiteName}" no encontrada`;
+                                if (DEBUG_MODE) alert(`❌ DEBUG: ${lastError}`);
+                                throw new Error(lastError);
                             }
+                        } else {
+                            lastError = 'No se pudieron cargar obras';
+                            if (DEBUG_MODE) alert(`❌ DEBUG: ${lastError}`);
+                            throw new Error(lastError);
                         }
-                    } catch (err) {
-                        console.error('Error buscando obra en Supabase:', err);
+                        
+                        const supabaseData = {
+                            worker_id: clocking.userId,
+                            worksite_id: worksiteIdNumeric,
+                            tipo: clocking.type === 'in' ? 'entrada' : 'salida',
+                            worker_lat: clocking.location?.lat || null,
+                            worker_lng: clocking.location?.lng || null,
+                            worksite_lat: null,
+                            worksite_lng: null,
+                            distancia_metros: clocking.distance || null,
+                            dentro_rango: clocking.gpsValid || false,
+                            estado: clocking.gpsValid ? 'aprobado' : 'revision_manual',
+                            device_info: navigator.userAgent
+                        };
+                        
+                        if (DEBUG_MODE) {
+                            alert(`🔍 DEBUG: Datos preparados:\nWorker: ${supabaseData.worker_id}\nObra: ${supabaseData.worksite_id}\nTipo: ${supabaseData.tipo}`);
+                        }
+                        
+                        console.log('📤 Datos a enviar:', supabaseData);
+                        
+                        if (DEBUG_MODE) alert('🔍 DEBUG: Enviando a Supabase...');
+                        
+                        // Timeout de 15 segundos por intento
+                        const savePromise = window.supabaseDirect.insert('clockings', supabaseData);
+                        const timeoutPromise = new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Timeout - Servidor no responde')), 15000)
+                        );
+                        
+                        const result = await Promise.race([savePromise, timeoutPromise]);
+                        
+                        if (DEBUG_MODE) alert(`🔍 DEBUG: Respuesta recibida`);
+                        
+                        if (result.error) {
+                            lastError = result.error.message || 'Error desconocido';
+                            console.error(`❌ Error en intento ${attempts}:`, result.error);
+                            if (DEBUG_MODE) alert(`❌ DEBUG: Error Supabase: ${lastError}`);
+                            throw new Error(lastError);
+                        } else {
+                            console.log('✅ Fichaje guardado en Supabase:', result.data);
+                            savedSuccessfully = true;
+                            
+                            if (DEBUG_MODE) alert('✅ DEBUG: ¡Guardado exitoso!');
+                            
+                            // Solo actualizar estado local si se guardó en servidor
+                            setClockings([...clockings, clocking]);
+                            
+                            // Auditoría
+                            logAudit('FICHAJE', `${clocking.type === 'in' ? 'Entrada' : 'Salida'} registrada - Obra: ${clocking.worksiteName}`);
+                            
+                            // Notificación de éxito
+                            showNotification(
+                                `✅ ${clocking.type === 'in' ? 'Entrada' : 'Salida'} registrada correctamente`,
+                                'success'
+                            );
+                        }
+                    } catch (error) {
+                        lastError = error.message || error.toString();
+                        console.error(`❌ Error en intento ${attempts}/${maxAttempts}:`, error);
+                        
+                        if (DEBUG_MODE) {
+                            alert(`❌ DEBUG: Error intento ${attempts}:\n${lastError}`);
+                        }
+                        
+                        if (attempts < maxAttempts) {
+                            // Esperar 2 segundos antes del siguiente intento
+                            showNotification(`⚠️ Reintentando... (${attempts}/${maxAttempts})`, 'warning');
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                        }
                     }
-                    
-                    const supabaseData = {
-                        worker_id: clocking.userId,  // userId es el workerId
-                        worksite_id: worksiteIdNumeric,  // ID numérico de la obra en Supabase
-                        tipo: clocking.type === 'in' ? 'entrada' : 'salida',
-                        worker_lat: clocking.location?.lat || null,
-                        worker_lng: clocking.location?.lng || null,
-                        worksite_lat: null,
-                        worksite_lng: null,
-                        distancia_metros: clocking.distance || null,
-                        dentro_rango: clocking.gpsValid || false,
-                        estado: clocking.gpsValid ? 'aprobado' : 'revision_manual',
-                        device_info: navigator.userAgent
-                    };
-                    
-                    console.log('📤 Enviando a Supabase:', supabaseData);
-                    
-                    const result = await window.supabaseDirect.insert('clockings', supabaseData);
-                    
-                    if (result.error) {
-                        console.error('❌ Error guardando en Supabase:', result.error);
-                        // Fallback a localStorage si Supabase falla
-                        setClockings([...clockings, clocking]);
-                    } else {
-                        console.log('✅ Fichaje guardado en Supabase:', result.data);
-                        setClockings([...clockings, clocking]);
-                    }
-                } catch (error) {
-                    console.error('❌ Error en handleClocking:', error);
-                    // Fallback a localStorage
-                    setClockings([...clockings, clocking]);
                 }
                 
-                // Auditoría
-                logAudit('FICHAJE', `${clocking.type === 'in' ? 'Entrada' : 'Salida'} registrada - Obra: ${clocking.worksiteName}`);
-                
-                showNotification(
-                    `${clocking.type === 'in' ? 'Entrada' : 'Salida'} registrada con éxito`,
-                    'success'
-                );
+                // Si después de todos los intentos no se guardó
+                if (!savedSuccessfully) {
+                    console.error('❌ FALLO CRÍTICO: No se pudo guardar el fichaje después de 3 intentos');
+                    console.error('❌ Último error:', lastError);
+                    
+                    if (DEBUG_MODE) {
+                        alert(`❌ DEBUG FINAL: NO SE GUARDÓ\nÚltimo error: ${lastError}`);
+                    }
+                    
+                    showNotification(
+                        '❌ ERROR: No se pudo registrar el fichaje.\n\n' +
+                        'Error: ' + lastError + '\n\n' +
+                        'Contacta con el administrador.',
+                        'error'
+                    );
+                    
+                    // NO guardar en localStorage - el fichaje NO se registra
+                }
             };
 
             const logAudit = (accion, detalles) => {
