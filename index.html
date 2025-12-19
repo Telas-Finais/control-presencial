@@ -6346,8 +6346,14 @@
                             device_info: navigator.userAgent
                         };
                         
+                        // DEBUG: Verificar tipos de datos
+                        console.log('🔍 DEBUG clocking completo:', clocking);
+                        console.log('🔍 DEBUG clocking.userId:', clocking.userId, 'tipo:', typeof clocking.userId);
+                        console.log('🔍 DEBUG clocking.id:', clocking.id, 'tipo:', typeof clocking.id);
+                        console.log('🔍 DEBUG supabaseData.worker_id:', supabaseData.worker_id, 'tipo:', typeof supabaseData.worker_id);
+                        
                         if (DEBUG_MODE) {
-                            alert(`🔍 DEBUG: Datos preparados:\nWorker: ${supabaseData.worker_id}\nObra: ${supabaseData.worksite_id}\nTipo: ${supabaseData.tipo}`);
+                            alert(`🔍 DEBUG: Datos preparados:\nWorker: ${supabaseData.worker_id} (tipo: ${typeof supabaseData.worker_id})\nObra: ${supabaseData.worksite_id}\nTipo: ${supabaseData.tipo}`);
                         }
                         
                         console.log('📤 Datos a enviar:', supabaseData);
