@@ -82,6 +82,11 @@
                     const url = `${SUPABASE_URL}/rest/v1/${table}`;
                     const body = Array.isArray(records) ? records : [records];
                     
+                    console.log('🔍 INSERT Request:', {
+                        url,
+                        body: JSON.stringify(body, null, 2)
+                    });
+                    
                     const response = await fetch(url, {
                         method: 'POST',
                         headers: {
@@ -93,10 +98,27 @@
                         body: JSON.stringify(body)
                     });
                     
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    if (!response.ok) {
+                        // Leer el cuerpo del error para ver el mensaje real
+                        const errorBody = await response.text();
+                        console.error('❌ Supabase Error Response:', errorBody);
+                        
+                        let errorMessage = `HTTP ${response.status}`;
+                        try {
+                            const errorJson = JSON.parse(errorBody);
+                            errorMessage = errorJson.message || errorJson.hint || errorMessage;
+                        } catch (e) {
+                            errorMessage = errorBody || errorMessage;
+                        }
+                        
+                        throw new Error(errorMessage);
+                    }
+                    
                     const data = await response.json();
+                    console.log('✅ INSERT Success:', data);
                     return { data, error: null };
                 } catch (error) {
+                    console.error('❌ INSERT Error:', error);
                     return { data: null, error };
                 }
             },
@@ -4006,7 +4028,7 @@
                             },
                             { 
                                 enableHighAccuracy: true,
-                                timeout: 15000,  // 15 segundos
+                                timeout: 30000,  // 30 segundos (aumentado para celulares)
                                 maximumAge: 0
                             }
                         );
@@ -4311,7 +4333,7 @@
                             },
                             { 
                                 enableHighAccuracy: true,
-                                timeout: 15000,  // 15 segundos
+                                timeout: 30000,  // 30 segundos (aumentado para celulares)
                                 maximumAge: 0
                             }
                         );
@@ -6103,10 +6125,12 @@
                 // Cargar datos desde Supabase
                 const loadDataFromSupabase = async () => {
                     try {
+                        let formattedWorkers = []; // Declarar aquí para que esté disponible en todo el scope
+                        
                         // Cargar trabajadores desde Supabase
                         const workersResult = await window.supabaseDirect.select('workers');
                         if (workersResult.data && workersResult.data.length > 0) {
-                            const formattedWorkers = workersResult.data.map(w => ({
+                            formattedWorkers = workersResult.data.map(w => ({
                                 id: w.id,
                                 nombre: w.nombre,
                                 usuario: w.usuario,
@@ -6116,7 +6140,8 @@
                             console.log('✅ Trabajadores cargados desde Supabase:', formattedWorkers.length);
                         } else {
                             // Fallback a datos locales si Supabase falla
-                            setWorkers(COMPANY_DATA.trabajadores);
+                            formattedWorkers = COMPANY_DATA.trabajadores;
+                            setWorkers(formattedWorkers);
                             console.log('⚠️ Usando trabajadores locales (Supabase vacío)');
                         }
                         
