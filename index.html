@@ -48,6 +48,44 @@
         
         // Cliente Supabase simplificado usando fetch directo
         window.supabaseDirect = {
+            // STORAGE: Subir archivos
+            async uploadFile(bucket, path, file) {
+                try {
+                    const url = `${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`;
+                    
+                    // Convertir base64 a blob si es necesario
+                    let fileToUpload = file;
+                    if (typeof file === 'string' && file.startsWith('data:')) {
+                        // Es base64, convertir a blob
+                        const response = await fetch(file);
+                        fileToUpload = await response.blob();
+                    }
+                    
+                    const uploadResponse = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': SUPABASE_KEY,
+                            'Authorization': `Bearer ${SUPABASE_KEY}`,
+                            'Content-Type': fileToUpload.type || 'image/jpeg'
+                        },
+                        body: fileToUpload
+                    });
+                    
+                    if (!uploadResponse.ok) {
+                        const errorText = await uploadResponse.text();
+                        throw new Error(`Upload failed: ${errorText}`);
+                    }
+                    
+                    // Construir URL pública de la foto
+                    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
+                    
+                    return { data: { path, publicUrl }, error: null };
+                } catch (error) {
+                    console.error('Error uploading file:', error);
+                    return { data: null, error };
+                }
+            },
+            
             // SELECT: Obtener datos
             async select(table, options = {}) {
                 try {
@@ -5839,13 +5877,14 @@
                                     <th>Fecha/Hora</th>
                                     <th>Obra</th>
                                     <th>GPS</th>
+                                    <th>Foto</th>
                                     <th>Rostro</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredClockings.length === 0 ? (
                                     <tr>
-                                        <td colSpan="6" style={{textAlign: 'center', padding: '40px', color: '#6b7280'}}>
+                                        <td colSpan="7" style={{textAlign: 'center', padding: '40px', color: '#6b7280'}}>
                                             No hay fichajes que coincidan con los filtros
                                         </td>
                                     </tr>
@@ -5864,6 +5903,20 @@
                                                 {c.location && c.location.lat && c.location.lng 
                                                     ? `${c.location.lat.toFixed(4)}, ${c.location.lng.toFixed(4)}` 
                                                     : 'Sin GPS'}
+                                            </td>
+                                            <td>
+                                                {c.photoUrl ? (
+                                                    <a 
+                                                        href={c.photoUrl} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        style={{color: '#2563eb', textDecoration: 'none'}}
+                                                    >
+                                                        📸 Ver foto
+                                                    </a>
+                                                ) : (
+                                                    <span style={{color: '#9ca3af', fontSize: '12px'}}>Sin foto</span>
+                                                )}
                                             </td>
                                             <td>
                                                 {c.faceRecognized ? (
@@ -6182,7 +6235,8 @@
                                     distance: c.distancia_metros,
                                     gpsValid: c.dentro_rango,
                                     faceRecognized: false,
-                                    photo: null
+                                    photo: null,
+                                    photoUrl: c.url_foto  // Agregar URL de la foto
                                 };
                             }));
                             setClockings(formattedClockings);
@@ -6332,6 +6386,36 @@
                             throw new Error(lastError);
                         }
                         
+                        // SUBIR FOTO A STORAGE (si existe)
+                        let photoUrl = null;
+                        if (clocking.photo) {
+                            try {
+                                if (DEBUG_MODE) alert('📸 DEBUG: Subiendo foto a Storage...');
+                                console.log('📸 Subiendo foto a Supabase Storage...');
+                                
+                                // Nombre único para la foto: worker_id_timestamp.jpg
+                                const fileName = `${clocking.userId}_${Date.now()}.jpg`;
+                                const uploadResult = await window.supabaseDirect.uploadFile(
+                                    'fotos-de-registro',
+                                    fileName,
+                                    clocking.photo
+                                );
+                                
+                                if (uploadResult.error) {
+                                    console.warn('⚠️ Error subiendo foto:', uploadResult.error);
+                                    if (DEBUG_MODE) alert(`⚠️ DEBUG: Error foto: ${uploadResult.error.message}`);
+                                    // Continuar sin foto
+                                } else {
+                                    photoUrl = uploadResult.data.publicUrl;
+                                    console.log('✅ Foto subida:', photoUrl);
+                                    if (DEBUG_MODE) alert(`✅ DEBUG: Foto subida correctamente`);
+                                }
+                            } catch (photoError) {
+                                console.warn('⚠️ Error en subida de foto:', photoError);
+                                // Continuar sin foto
+                            }
+                        }
+                        
                         const supabaseData = {
                             worker_id: clocking.userId,
                             worksite_id: worksiteIdNumeric,
@@ -6343,7 +6427,8 @@
                             distancia_metros: clocking.distance ? Math.round(clocking.distance) : null,
                             dentro_rango: clocking.gpsValid || false,
                             estado: clocking.gpsValid ? 'aprobado' : 'revision_manual',
-                            device_info: navigator.userAgent
+                            device_info: navigator.userAgent,
+                            url_foto: photoUrl  // Agregar URL de la foto
                         };
                         
                         // DEBUG: Verificar tipos de datos
