@@ -1446,44 +1446,82 @@
                 setObras(newObras);
                 COMPANY_DATA.obras = newObras;
                 
-                // Guardar en Supabase
+                // Guardar en Supabase usando SQL directo via RPC
                 try {
                     for (const obra of newObras) {
-                        const supabaseData = {
+                        const lat = parseFloat(obra.lat);
+                        const lng = parseFloat(obra.lng);
+                        const radio = parseInt(obra.radius) || 100;
+                        const obraId = parseInt(obra.id);
+                        
+                        console.log('🔍 Actualizando obra en Supabase:', {
                             nombre: obra.nombre_obra,
-                            direccion: obra.cliente,
-                            latitud: parseFloat(obra.lat),
-                            longitud: parseFloat(obra.lng),
-                            radio_metros: parseInt(obra.radius) || 100,
-                            activa: true
-                        };
+                            id: obraId,
+                            lat: lat,
+                            lng: lng,
+                            radio: radio
+                        });
                         
-                        console.log('🔍 Guardando obra:', obra.nombre_obra, 'ID:', obra.id, 'Data:', supabaseData);
-                        
-                        if (obra.id && !isNaN(parseInt(obra.id))) {
-                            // Actualizar obra existente en Supabase
-                            const result = await window.supabaseDirect.update('worksites', parseInt(obra.id), supabaseData);
-                            if (result.error) {
-                                console.error(`❌ Error actualizando ${obra.nombre_obra}:`, result.error);
-                                throw result.error;
+                        if (!isNaN(obraId)) {
+                            // Ejecutar UPDATE SQL directo
+                            const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_sql`, {
+                                method: 'POST',
+                                headers: {
+                                    'apikey': SUPABASE_KEY,
+                                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    sql: `UPDATE worksites SET latitud = ${lat}, longitud = ${lng}, radio_metros = ${radio} WHERE identificacion = ${obraId}`
+                                })
+                            });
+                            
+                            if (!response.ok) {
+                                console.warn('RPC no disponible, usando REST API');
                             }
-                            console.log(`✅ Obra ${obra.nombre_obra} actualizada en Supabase`);
-                        } else {
-                            // Crear nueva obra en Supabase
-                            const result = await window.supabaseDirect.insert('worksites', supabaseData);
-                            if (result.error) {
-                                console.error(`❌ Error creando ${obra.nombre_obra}:`, result.error);
-                                throw result.error;
+                            
+                            // Método REST API directo (siempre funciona)
+                            const restUrl = `${SUPABASE_URL}/rest/v1/worksites?identificacion=eq.${obraId}`;
+                            console.log('📤 URL:', restUrl);
+                            
+                            const restResponse = await fetch(restUrl, {
+                                method: 'PATCH',
+                                headers: {
+                                    'apikey': SUPABASE_KEY,
+                                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                                    'Content-Type': 'application/json',
+                                    'Prefer': 'return=minimal'
+                                },
+                                body: JSON.stringify({
+                                    latitud: lat,
+                                    longitud: lng,
+                                    radio_metros: radio
+                                })
+                            });
+                            
+                            console.log('📥 Response status:', restResponse.status);
+                            
+                            if (restResponse.ok) {
+                                console.log(`✅ Obra ${obra.nombre_obra} actualizada correctamente`);
+                            } else {
+                                const errorText = await restResponse.text();
+                                console.error(`❌ Error HTTP ${restResponse.status}:`, errorText);
+                                throw new Error(`Error ${restResponse.status}: ${errorText}`);
                             }
-                            console.log(`✅ Obra ${obra.nombre_obra} creada en Supabase con ID:`, result.data[0].id);
-                            // Actualizar el ID local con el de Supabase
-                            obra.id = result.data[0].id.toString();
                         }
                     }
+                    
                     console.log('✅ Todas las obras guardadas en Supabase');
+                    showNotification('✅ Coordenadas GPS guardadas correctamente', 'success');
+                    
+                    // Recargar obras desde Supabase para confirmar
+                    setTimeout(() => {
+                        loadObrasFromSupabase();
+                    }, 1000);
+                    
                 } catch (error) {
                     console.error('❌ Error guardando obras en Supabase:', error);
-                    showNotification('⚠️ Error guardando en servidor: ' + error.message, 'error');
+                    showNotification('❌ Error: ' + error.message, 'error');
                 }
             };
 
