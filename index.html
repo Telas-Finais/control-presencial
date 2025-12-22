@@ -1440,11 +1440,51 @@
                 }
             };
 
-            const saveObras = (newObras) => {
+            const saveObras = async (newObras) => {
+                // Guardar en localStorage (backup)
                 localStorage.setItem('gps_obras', JSON.stringify(newObras));
                 setObras(newObras);
-                // Actualizar también COMPANY_DATA
                 COMPANY_DATA.obras = newObras;
+                
+                // Guardar en Supabase
+                try {
+                    for (const obra of newObras) {
+                        const supabaseData = {
+                            nombre: obra.nombre_obra,
+                            direccion: obra.cliente,
+                            latitud: parseFloat(obra.lat),
+                            longitud: parseFloat(obra.lng),
+                            radio_metros: parseInt(obra.radius) || 100,
+                            activa: true
+                        };
+                        
+                        console.log('🔍 Guardando obra:', obra.nombre_obra, 'ID:', obra.id, 'Data:', supabaseData);
+                        
+                        if (obra.id && !isNaN(parseInt(obra.id))) {
+                            // Actualizar obra existente en Supabase
+                            const result = await window.supabaseDirect.update('worksites', parseInt(obra.id), supabaseData);
+                            if (result.error) {
+                                console.error(`❌ Error actualizando ${obra.nombre_obra}:`, result.error);
+                                throw result.error;
+                            }
+                            console.log(`✅ Obra ${obra.nombre_obra} actualizada en Supabase`);
+                        } else {
+                            // Crear nueva obra en Supabase
+                            const result = await window.supabaseDirect.insert('worksites', supabaseData);
+                            if (result.error) {
+                                console.error(`❌ Error creando ${obra.nombre_obra}:`, result.error);
+                                throw result.error;
+                            }
+                            console.log(`✅ Obra ${obra.nombre_obra} creada en Supabase con ID:`, result.data[0].id);
+                            // Actualizar el ID local con el de Supabase
+                            obra.id = result.data[0].id.toString();
+                        }
+                    }
+                    console.log('✅ Todas las obras guardadas en Supabase');
+                } catch (error) {
+                    console.error('❌ Error guardando obras en Supabase:', error);
+                    showNotification('⚠️ Error guardando en servidor: ' + error.message, 'error');
+                }
             };
 
             const saveGPSConfig = (newConfig) => {
@@ -1507,7 +1547,7 @@
                 setShowModal(true);
             };
 
-            const handleSaveObra = () => {
+            const handleSaveObra = async () => {
                 // Validar campos obligatorios
                 if (!editingObra.nombre_obra || !editingObra.nombre_obra.trim()) {
                     showNotification('Debes ingresar el nombre de la obra', 'error');
@@ -1540,12 +1580,12 @@
                     showNotification(`Obra "${editingObra.nombre_obra}" actualizada`, 'success');
                 }
 
-                saveObras(updatedObras);
+                await saveObras(updatedObras);
                 setShowModal(false);
                 setEditingObra(null);
             };
 
-            const handleDeleteObra = (obra) => {
+            const handleDeleteObra = async (obra) => {
                 // Confirmar eliminación
                 if (!confirm(
                     `¿Eliminar esta obra?\n\n` +
@@ -1562,7 +1602,7 @@
 
                 // Eliminar obra
                 const updatedObras = obras.filter(o => o.id !== obra.id);
-                saveObras(updatedObras);
+                await saveObras(updatedObras);
                 
                 showNotification(
                     `Obra "${obra.nombre_obra}" eliminada correctamente\n\n` +
