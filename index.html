@@ -6396,7 +6396,7 @@
                                 // Nombre único para la foto: worker_id_timestamp.jpg
                                 const fileName = `${clocking.userId}_${Date.now()}.jpg`;
                                 const uploadResult = await window.supabaseDirect.uploadFile(
-                                    'FOTOS-DE-REGISTRO',
+                                    'fotos-de-registro',
                                     fileName,
                                     clocking.photo
                                 );
