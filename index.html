@@ -1472,7 +1472,7 @@
                                     'Content-Type': 'application/json'
                                 },
                                 body: JSON.stringify({
-                                    sql: `UPDATE worksites SET latitud = ${lat}, longitud = ${lng}, radio_metros = ${radio} WHERE identificacion = ${obraId}`
+                                    sql: `UPDATE worksites SET latitud = ${lat}, longitud = ${lng}, radio_metros = ${radio} WHERE identificación = ${obraId}`
                                 })
                             });
                             
@@ -1481,7 +1481,7 @@
                             }
                             
                             // Método REST API directo (siempre funciona)
-                            const restUrl = `${SUPABASE_URL}/rest/v1/worksites?identificacion=eq.${obraId}`;
+                            const restUrl = `${SUPABASE_URL}/rest/v1/worksites?identificación=eq.${obraId}`;
                             console.log('📤 URL:', restUrl);
                             
                             const restResponse = await fetch(restUrl, {
