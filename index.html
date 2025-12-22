@@ -1386,8 +1386,8 @@
                             id: w.id.toString(),
                             cliente: w.direccion || 'Sin cliente',
                             nombre_obra: w.nombre,
-                            lat: parseFloat(w.latitude),
-                            lng: parseFloat(w.longitude),
+                            lat: parseFloat(w.latitud),
+                            lng: parseFloat(w.longitud),
                             radius: w.radio_metros || 100
                         }));
                         
@@ -4093,8 +4093,8 @@
                             obrasGPS = result.data.map(w => ({
                                 id: w.id.toString(),
                                 nombre_obra: w.nombre,
-                                lat: parseFloat(w.latitude),
-                                lng: parseFloat(w.longitude),
+                                lat: parseFloat(w.latitud),
+                                lng: parseFloat(w.longitud),
                                 radius: w.radio_metros || 100
                             }));
                             console.log('✅ Obras cargadas desde Supabase:', obrasGPS.length);
