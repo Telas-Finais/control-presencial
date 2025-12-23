@@ -1386,8 +1386,8 @@
                             id: w.id.toString(),
                             cliente: w.direccion || 'Sin cliente',
                             nombre_obra: w.nombre,
-                            lat: parseFloat(w.latitud),
-                            lng: parseFloat(w.longitud),
+                            lat: parseFloat(w.latitude),
+                            lng: parseFloat(w.longitude),
                             radius: w.radio_metros || 100
                         }));
                         
@@ -1472,7 +1472,7 @@
                                     'Content-Type': 'application/json'
                                 },
                                 body: JSON.stringify({
-                                    sql: `UPDATE worksites SET latitud = ${lat}, longitud = ${lng}, radio_metros = ${radio} WHERE identificación = ${obraId}`
+                                    sql: `UPDATE worksites SET latitude = ${lat}, longitude = ${lng}, radio_metros = ${radio} WHERE id = ${obraId}`
                                 })
                             });
                             
@@ -1481,7 +1481,7 @@
                             }
                             
                             // Método REST API directo (siempre funciona)
-                            const restUrl = `${SUPABASE_URL}/rest/v1/worksites?identificación=eq.${obraId}`;
+                            const restUrl = `${SUPABASE_URL}/rest/v1/worksites?id=eq.${obraId}`;
                             console.log('📤 URL:', restUrl);
                             
                             const restResponse = await fetch(restUrl, {
@@ -1493,8 +1493,8 @@
                                     'Prefer': 'return=minimal'
                                 },
                                 body: JSON.stringify({
-                                    latitud: lat,
-                                    longitud: lng,
+                                    latitude: lat,
+                                    longitude: lng,
                                     radio_metros: radio
                                 })
                             });
@@ -4171,8 +4171,8 @@
                             obrasGPS = result.data.map(w => ({
                                 id: w.id.toString(),
                                 nombre_obra: w.nombre,
-                                lat: parseFloat(w.latitud),
-                                lng: parseFloat(w.longitud),
+                                lat: parseFloat(w.latitude),
+                                lng: parseFloat(w.longitude),
                                 radius: w.radio_metros || 100
                             }));
                             console.log('✅ Obras cargadas desde Supabase:', obrasGPS.length);
