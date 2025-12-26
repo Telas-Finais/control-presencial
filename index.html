@@ -4022,8 +4022,10 @@
                     setWorkerQR(qrData);
                     setStep('ready');
                 }
-                
-                // ⭐ CARGAR OBRAS DESDE SUPABASE
+            }, [user]);
+            
+            // ⭐ CARGAR OBRAS DESDE SUPABASE (useEffect separado)
+            useEffect(() => {
                 const cargarObras = async () => {
                     try {
                         console.log('📍 Cargando obras desde Supabase...');
@@ -4058,7 +4060,7 @@
                 };
                 
                 cargarObras();
-            }, [user]);
+            }, []);
                     setWorkerQR(qrData);
                     setStep('first-time');
                     
