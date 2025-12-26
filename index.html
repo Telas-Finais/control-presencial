@@ -207,6 +207,32 @@
         };
         
         console.log('✅ Supabase Direct API lista');
+        
+        // ⭐ CARGAR OBRAS DESDE SUPABASE AL INICIO (actualizar COMPANY_DATA)
+        (async () => {
+            try {
+                console.log('🔄 Cargando obras desde Supabase...');
+                const result = await window.supabaseDirect.select('worksites');
+                
+                if (result.data && result.data.length > 0) {
+                    // Actualizar COMPANY_DATA.obras con datos de Supabase
+                    COMPANY_DATA.obras = result.data.map(w => ({
+                        id: w.id.toString(),
+                        cliente: w.direccion || '',
+                        nombre_obra: w.nombre,
+                        lat: parseFloat(w.latitude) || null,
+                        lng: parseFloat(w.longitude) || null,
+                        radius: w.radio_metros || 100
+                    }));
+                    console.log('✅ COMPANY_DATA.obras actualizado con', COMPANY_DATA.obras.length, 'obras desde Supabase');
+                } else {
+                    console.warn('⚠️ No hay obras en Supabase, usando COMPANY_DATA por defecto');
+                }
+            } catch (error) {
+                console.error('❌ Error cargando obras desde Supabase:', error);
+                console.log('⚠️ Usando COMPANY_DATA.obras por defecto');
+            }
+        })();
     </script>
     <style>
         * {
@@ -1176,7 +1202,7 @@
         };
 
         // Datos de la empresa - TODOS LOS 33 TRABAJADORES
-        const COMPANY_DATA = {
+        let COMPANY_DATA = {
             obras: [
                 {"id": "OB001", "cliente": "TORRES IDILICAS", "nombre_obra": "FONTOURA", "lat": 41.653224, "lng": -8.691008, "radius": 100},
                 {"id": "OB002", "cliente": "BYB", "nombre_obra": "OIA VIGO", "lat": null, "lng": null, "radius": 100},
@@ -4001,7 +4027,6 @@
             const [selectedObra, setSelectedObra] = useState('');
             const [gpsLocation, setGpsLocation] = useState(null);
             const [successData, setSuccessData] = useState(null);
-            const [obrasDisponibles, setObrasDisponibles] = useState([]); // ⭐ NUEVO: obras desde Supabase
             const videoRef = useRef(null);
             const streamRef = useRef(null);
 
@@ -4019,48 +4044,6 @@
                         generatedAt: new Date()
                     };
                     localStorage.setItem(`worker_qr_${user.workerId}`, JSON.stringify(qrData));
-                    setWorkerQR(qrData);
-                    setStep('ready');
-                }
-            }, [user]);
-            
-            // ⭐ CARGAR OBRAS DESDE SUPABASE (useEffect separado)
-            useEffect(() => {
-                const cargarObras = async () => {
-                    try {
-                        console.log('📍 Cargando obras desde Supabase...');
-                        const result = await window.supabaseDirect.select('worksites');
-                        
-                        if (result.data && result.data.length > 0) {
-                            const obras = result.data
-                                .filter(w => w.latitude && w.longitude) // Solo obras con GPS
-                                .map(w => ({
-                                    id: w.id.toString(),
-                                    nombre_obra: w.nombre,
-                                    lat: parseFloat(w.latitude),
-                                    lng: parseFloat(w.longitude),
-                                    radius: w.radio_metros || 100,
-                                    direccion: w.direccion || '',
-                                    activa: w.activa !== false
-                                }))
-                                .filter(w => w.activa); // Solo obras activas
-                            
-                            setObrasDisponibles(obras);
-                            console.log('✅ Obras cargadas:', obras.length);
-                        } else {
-                            console.warn('⚠️ No hay obras en Supabase');
-                            // Fallback a COMPANY_DATA
-                            setObrasDisponibles(COMPANY_DATA.obras.filter(o => o.lat && o.lng));
-                        }
-                    } catch (error) {
-                        console.error('❌ Error cargando obras:', error);
-                        // Fallback a COMPANY_DATA
-                        setObrasDisponibles(COMPANY_DATA.obras.filter(o => o.lat && o.lng));
-                    }
-                };
-                
-                cargarObras();
-            }, []);
                     setWorkerQR(qrData);
                     setStep('first-time');
                     
@@ -4792,11 +4775,14 @@
                                 onChange={(e) => setSelectedObra(e.target.value)}
                             >
                                 <option value="">-- Selecciona la obra --</option>
-                                {obrasDisponibles.map(obra => (
-                                    <option key={obra.id} value={obra.nombre_obra}>
-                                        {obra.nombre_obra}{obra.direccion ? ` - ${obra.direccion}` : ''}
-                                    </option>
-                                ))}
+                                {COMPANY_DATA.obras
+                                    .filter(obra => obra.lat && obra.lng)  // Solo obras con GPS configurado
+                                    .map(obra => (
+                                        <option key={obra.id} value={obra.nombre_obra}>
+                                            {obra.nombre_obra} - {obra.cliente}
+                                        </option>
+                                    ))
+                                }
                             </select>
                             {COMPANY_DATA.obras.filter(o => o.lat && o.lng).length === 0 && (
                                 <p style={{color: '#ef4444', fontSize: '13px', marginTop: '8px'}}>
@@ -6945,9 +6931,8 @@
     <!-- ⭐ ERUDA - Consola de desarrollo móvil ⭐ -->
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>
-        // Inicializar Eruda automáticamente
         eruda.init();
-        console.log('🔧 Eruda inicializado - Toca el botón flotante para abrir la consola');
+        console.log('🔧 Eruda inicializado');
     </script>
 </body>
 </html>
