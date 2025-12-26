@@ -6317,6 +6317,13 @@
                                     photoUrl: c.url_foto  // Agregar URL de la foto
                                 };
                             }));
+                            
+                            console.log('📊 Fichajes mapeados:', formattedClockings.map(c => ({
+                                id: c.id,
+                                userName: c.userName,
+                                photoUrl: c.photoUrl,
+                                hasPhoto: !!c.photoUrl
+                            })));
                             setClockings(formattedClockings);
                             console.log('✅ Fichajes cargados desde Supabase:', formattedClockings.length);
                         } else {
@@ -6448,14 +6455,24 @@
                         }
                         
                         if (worksitesResult.data && worksitesResult.data.length > 0) {
-                            const worksite = worksitesResult.data.find(w => w.nombre === clocking.worksiteName);
+                            // Buscar obra de forma insensible a mayúsculas/espacios
+                            const worksite = worksitesResult.data.find(w => 
+                                w.nombre.trim().toUpperCase() === clocking.worksiteName.trim().toUpperCase()
+                            );
+                            
+                            if (DEBUG_MODE) {
+                                alert(`🔍 DEBUG: Buscando "${clocking.worksiteName}" en ${worksitesResult.data.length} obras`);
+                                console.log('Obras disponibles:', worksitesResult.data.map(w => w.nombre));
+                            }
+                            
                             if (worksite) {
                                 worksiteIdNumeric = worksite.id;
                                 console.log(`📍 Obra encontrada: ${clocking.worksiteName} → ID: ${worksiteIdNumeric}`);
                                 if (DEBUG_MODE) alert(`🔍 DEBUG: Obra encontrada ID=${worksiteIdNumeric}`);
                             } else {
                                 lastError = `Obra "${clocking.worksiteName}" no encontrada`;
-                                if (DEBUG_MODE) alert(`❌ DEBUG: ${lastError}`);
+                                console.error('❌ Obras disponibles:', worksitesResult.data.map(w => w.nombre));
+                                if (DEBUG_MODE) alert(`❌ DEBUG: ${lastError}\nObras: ${worksitesResult.data.map(w => w.nombre).join(', ')}`);
                                 throw new Error(lastError);
                             }
                         } else {
@@ -6466,6 +6483,8 @@
                         
                         // SUBIR FOTO A STORAGE (si existe)
                         let photoUrl = null;
+                        console.log('🔍 DEBUG: clocking.photo existe?', !!clocking.photo, 'tamaño:', clocking.photo?.length);
+                        
                         if (clocking.photo) {
                             try {
                                 if (DEBUG_MODE) alert('📸 DEBUG: Subiendo foto a Storage...');
@@ -6492,6 +6511,8 @@
                                 console.warn('⚠️ Error en subida de foto:', photoError);
                                 // Continuar sin foto
                             }
+                        } else {
+                            console.warn('⚠️ NO hay foto para subir');
                         }
                         
                         const supabaseData = {
