@@ -4001,6 +4001,7 @@
             const [selectedObra, setSelectedObra] = useState('');
             const [gpsLocation, setGpsLocation] = useState(null);
             const [successData, setSuccessData] = useState(null);
+            const [obrasDisponibles, setObrasDisponibles] = useState([]); // ⭐ NUEVO: obras desde Supabase
             const videoRef = useRef(null);
             const streamRef = useRef(null);
 
@@ -4018,6 +4019,46 @@
                         generatedAt: new Date()
                     };
                     localStorage.setItem(`worker_qr_${user.workerId}`, JSON.stringify(qrData));
+                    setWorkerQR(qrData);
+                    setStep('ready');
+                }
+                
+                // ⭐ CARGAR OBRAS DESDE SUPABASE
+                const cargarObras = async () => {
+                    try {
+                        console.log('📍 Cargando obras desde Supabase...');
+                        const result = await window.supabaseDirect.select('worksites');
+                        
+                        if (result.data && result.data.length > 0) {
+                            const obras = result.data
+                                .filter(w => w.latitude && w.longitude) // Solo obras con GPS
+                                .map(w => ({
+                                    id: w.id.toString(),
+                                    nombre_obra: w.nombre,
+                                    lat: parseFloat(w.latitude),
+                                    lng: parseFloat(w.longitude),
+                                    radius: w.radio_metros || 100,
+                                    direccion: w.direccion || '',
+                                    activa: w.activa !== false
+                                }))
+                                .filter(w => w.activa); // Solo obras activas
+                            
+                            setObrasDisponibles(obras);
+                            console.log('✅ Obras cargadas:', obras.length);
+                        } else {
+                            console.warn('⚠️ No hay obras en Supabase');
+                            // Fallback a COMPANY_DATA
+                            setObrasDisponibles(COMPANY_DATA.obras.filter(o => o.lat && o.lng));
+                        }
+                    } catch (error) {
+                        console.error('❌ Error cargando obras:', error);
+                        // Fallback a COMPANY_DATA
+                        setObrasDisponibles(COMPANY_DATA.obras.filter(o => o.lat && o.lng));
+                    }
+                };
+                
+                cargarObras();
+            }, [user]);
                     setWorkerQR(qrData);
                     setStep('first-time');
                     
@@ -4749,14 +4790,11 @@
                                 onChange={(e) => setSelectedObra(e.target.value)}
                             >
                                 <option value="">-- Selecciona la obra --</option>
-                                {COMPANY_DATA.obras
-                                    .filter(obra => obra.lat && obra.lng)  // Solo obras con GPS configurado
-                                    .map(obra => (
-                                        <option key={obra.id} value={obra.nombre_obra}>
-                                            {obra.nombre_obra} - {obra.cliente}
-                                        </option>
-                                    ))
-                                }
+                                {obrasDisponibles.map(obra => (
+                                    <option key={obra.id} value={obra.nombre_obra}>
+                                        {obra.nombre_obra}{obra.direccion ? ` - ${obra.direccion}` : ''}
+                                    </option>
+                                ))}
                             </select>
                             {COMPANY_DATA.obras.filter(o => o.lat && o.lng).length === 0 && (
                                 <p style={{color: '#ef4444', fontSize: '13px', marginTop: '8px'}}>
