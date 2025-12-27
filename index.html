@@ -4253,7 +4253,7 @@
                     console.log('💾 PASO 4: Registrando fichaje...');
                     setStep('validating');
                     
-                    registerClocking(gpsPosition, false, 0, photoResult.photo);
+                    await registerClocking(gpsPosition, false, 0, photoResult.photo);
 
                 } catch (error) {
                     console.error('❌ Error en fichaje rápido:', error);
@@ -4456,7 +4456,7 @@
                     });
                     
                     setGpsLocation(gpsPosition);
-                    registerClocking(gpsPosition, true, similarity, photoBase64);
+                    await registerClocking(gpsPosition, true, similarity, photoBase64);
 
                 } catch (error) {
                     console.error('Error en reconocimiento facial:', error);
@@ -4487,7 +4487,7 @@
                 }
             };
 
-            const registerClocking = (location, faceRecognized = false, similarity = 0, photoBase64 = null) => {
+            const registerClocking = async (location, faceRecognized = false, similarity = 0, photoBase64 = null) => {
                 // ============================================
                 // VALIDACIÓN GPS OBLIGATORIA
                 // ============================================
