@@ -4547,19 +4547,24 @@
                 const gpsConfigStr = localStorage.getItem('gps_config');
                 const gpsConfig = gpsConfigStr ? JSON.parse(gpsConfigStr) : DEFAULT_GPS_CONFIG;
                 
-                // CRÍTICO: Cargar obras SIEMPRE de localStorage (coordenadas guardadas)
-                const obrasStr = localStorage.getItem('gps_obras');
+                // ⭐ USAR CACHÉ DE OBRAS (igual que quickClocking)
                 let obrasGPS;
                 
-                if (obrasStr) {
-                    // Usar obras guardadas en localStorage (con coordenadas)
-                    obrasGPS = JSON.parse(obrasStr);
-                    console.log('📍 Usando coordenadas de localStorage');
+                if (obrasCache && obrasCache.length > 0) {
+                    console.log('✅ [REGISTRO] Usando obras del caché:', obrasCache.length);
+                    obrasGPS = obrasCache;
                 } else {
-                    // Fallback: copiar COMPANY_DATA a localStorage
-                    obrasGPS = COMPANY_DATA.obras;
-                    localStorage.setItem('gps_obras', JSON.stringify(obrasGPS));
-                    console.warn('⚠️ Copiando obras a localStorage (primera vez)');
+                    console.warn('⚠️ [REGISTRO] Caché vacío, usando fallback');
+                    // Fallback 1: localStorage
+                    const obrasStr = localStorage.getItem('gps_obras');
+                    if (obrasStr) {
+                        obrasGPS = JSON.parse(obrasStr);
+                        console.log('📍 [REGISTRO] Usando localStorage');
+                    } else {
+                        // Fallback 2: COMPANY_DATA
+                        obrasGPS = COMPANY_DATA.obras;
+                        console.log('📍 [REGISTRO] Usando COMPANY_DATA');
+                    }
                 }
                 
                 // Determinar qué tipo de fichaje es
@@ -4574,21 +4579,28 @@
                 // CRÍTICO: Determinar obra correcta según tipo
                 let obra;
                 if (type === 'in') {
-                    // ENTRADA: Usar obra seleccionada por usuario (ahora selectedObra es el NOMBRE)
-                    obra = obrasGPS.find(o => o.nombre_obra === selectedObra);
+                    // ENTRADA: Usar obra seleccionada por usuario (búsqueda mejorada)
+                    obra = obrasGPS.find(o => 
+                        o.nombre_obra && 
+                        o.nombre_obra.trim().toUpperCase() === selectedObra.trim().toUpperCase()
+                    );
                     console.log(`🚪 ENTRADA: Buscando obra "${selectedObra}"`);
+                    console.log(`🚪 ENTRADA: Obra encontrada:`, obra ? obra.nombre_obra : 'NO ENCONTRADA');
                 } else {
                     // SALIDA: Usar MISMA obra donde entró (última entrada)
                     if (lastClocking && lastClocking.worksite) {
-                        // worksite puede ser ID o nombre, intentar ambos
+                        // worksite puede ser ID o nombre, intentar búsqueda mejorada
                         obra = obrasGPS.find(o => 
                             o.id === lastClocking.worksite || 
-                            o.nombre_obra === lastClocking.worksite
+                            (o.nombre_obra && o.nombre_obra.trim().toUpperCase() === lastClocking.worksite.trim().toUpperCase())
                         );
                         console.log(`🚪 SALIDA: Validando GPS en obra de entrada: ${obra?.nombre_obra}`);
                     } else {
                         // Fallback: usar obra seleccionada
-                        obra = obrasGPS.find(o => o.nombre_obra === selectedObra);
+                        obra = obrasGPS.find(o => 
+                            o.nombre_obra && 
+                            o.nombre_obra.trim().toUpperCase() === selectedObra.trim().toUpperCase()
+                        );
                         console.warn('⚠️ No se encontró obra de entrada, usando seleccionada');
                     }
                 }
