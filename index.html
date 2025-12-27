@@ -4001,47 +4001,8 @@
             const [selectedObra, setSelectedObra] = useState('');
             const [gpsLocation, setGpsLocation] = useState(null);
             const [successData, setSuccessData] = useState(null);
-            const [obrasCache, setObrasCache] = useState(null); // ⭐ CACHE de obras
             const videoRef = useRef(null);
             const streamRef = useRef(null);
-
-            // ⭐ CARGAR OBRAS UNA SOLA VEZ AL INICIO
-            useEffect(() => {
-                console.log('🚀 [INIT] useEffect de obras ejecutándose...');
-                
-                const loadObras = async () => {
-                    try {
-                        console.log('🔄 [INIT] Cargando obras desde Supabase...');
-                        const result = await window.supabaseDirect.select('worksites');
-                        
-                        console.log('🔍 [INIT] Resultado Supabase:', result);
-                        
-                        if (result.data && result.data.length > 0) {
-                            const obras = result.data.map(w => ({
-                                id: w.id.toString(),
-                                nombre_obra: w.nombre,
-                                lat: parseFloat(w.latitude),
-                                lng: parseFloat(w.longitude),
-                                radius: w.radio_metros || 100
-                            }));
-                            
-                            console.log('📊 [INIT] Obras mapeadas:', obras);
-                            setObrasCache(obras);
-                            console.log('✅ [INIT] Obras cacheadas:', obras.length);
-                            console.log('✅ [INIT] setObrasCache llamado con:', obras);
-                        } else {
-                            console.warn('⚠️ [INIT] No data from Supabase, usando fallback');
-                            console.log('📋 [INIT] COMPANY_DATA.obras:', COMPANY_DATA.obras);
-                            setObrasCache(COMPANY_DATA.obras);
-                        }
-                    } catch (error) {
-                        console.error('❌ [INIT] Error cargando obras:', error);
-                        setObrasCache(COMPANY_DATA.obras);
-                    }
-                };
-                
-                loadObras();
-            }, []); // Solo al montar el componente
 
             useEffect(() => {
                 // Verificar si ya tiene QR guardado
@@ -4183,8 +4144,8 @@
                             },
                             { 
                                 enableHighAccuracy: true,
-                                timeout: 15000,  // 15 segundos - reducido para mejor UX
-                                maximumAge: 10000  // Permitir caché de 10s
+                                timeout: 30000,  // 30 segundos (aumentado para celulares)
+                                maximumAge: 0
                             }
                         );
                     });
@@ -4200,52 +4161,39 @@
                     const gpsConfigStr = localStorage.getItem('gps_config');
                     const gpsConfig = gpsConfigStr ? JSON.parse(gpsConfigStr) : DEFAULT_GPS_CONFIG;
                     
-                    // ⭐ USAR OBRAS CACHEADAS (ya cargadas al inicio)
+                    // CARGAR OBRAS DESDE SUPABASE (NO localStorage)
                     let obrasGPS;
-                    
-                    if (obrasCache && obrasCache.length > 0) {
-                        console.log('✅ Usando obras del caché:', obrasCache.length);
-                        obrasGPS = obrasCache;
-                    } else {
-                        console.warn('⚠️ Caché vacío, cargando desde Supabase...');
-                        // Fallback: cargar desde Supabase si el caché está vacío
-                        try {
-                            const result = await window.supabaseDirect.select('worksites');
-                            
-                            if (result.data && result.data.length > 0) {
-                                obrasGPS = result.data.map(w => ({
-                                    id: w.id.toString(),
-                                    nombre_obra: w.nombre,
-                                    lat: parseFloat(w.latitude),
-                                    lng: parseFloat(w.longitude),
-                                    radius: w.radio_metros || 100
-                                }));
-                                setObrasCache(obrasGPS); // Actualizar caché
-                                console.log('✅ Obras cargadas y cacheadas:', obrasGPS.length);
-                            } else {
-                                throw new Error('No hay obras en Supabase');
-                            }
-                        } catch (error) {
-                            console.error('❌ Error cargando desde Supabase:', error);
-                            obrasGPS = COMPANY_DATA.obras;
-                            console.log('⚠️ Usando fallback COMPANY_DATA');
+                    try {
+                        console.log('📍 Cargando obras desde Supabase...');
+                        const result = await window.supabaseDirect.select('worksites');
+                        
+                        if (result.data && result.data.length > 0) {
+                            obrasGPS = result.data.map(w => ({
+                                id: w.id.toString(),
+                                nombre_obra: w.nombre,
+                                lat: parseFloat(w.latitude),
+                                lng: parseFloat(w.longitude),
+                                radius: w.radio_metros || 100
+                            }));
+                            console.log('✅ Obras cargadas desde Supabase:', obrasGPS.length);
+                        } else {
+                            throw new Error('No hay obras en Supabase');
                         }
+                    } catch (error) {
+                        console.error('❌ Error cargando desde Supabase:', error);
+                        // Fallback a localStorage solo si Supabase falla
+                        const obrasStr = localStorage.getItem('gps_obras');
+                        obrasGPS = obrasStr ? JSON.parse(obrasStr) : COMPANY_DATA.obras;
+                        console.log('⚠️ Usando fallback localStorage/COMPANY_DATA');
                     }
                     
                     // Buscar obra por NOMBRE (ya que ahora selectedObra guarda el nombre)
                     console.log('🔍 Buscando obra:', selectedObra);
                     console.log('📋 Obras disponibles:', obrasGPS.map(o => o.nombre_obra));
                     
-                    // Búsqueda mejorada: case-insensitive + trim
-                    const selectedObraGPS = obrasGPS.find(o => 
-                        o.nombre_obra && 
-                        o.nombre_obra.trim().toUpperCase() === selectedObra.trim().toUpperCase()
-                    );
+                    const selectedObraGPS = obrasGPS.find(o => o.nombre_obra === selectedObra);
                     
                     if (!selectedObraGPS) {
-                        console.error('❌ Obra no encontrada');
-                        console.error('Buscando:', selectedObra);
-                        console.error('Disponibles:', obrasGPS.map(o => `"${o.nombre_obra}"`));
                         throw new Error(`No se encontró la obra "${selectedObra}"\n\nIntenta de nuevo.`);
                     }
                     
@@ -4551,39 +4499,34 @@
                 
                 console.log('✅ GPS válido para registro:', location);
                 
-                // DEBUG: Estado del caché
-                console.log('🔍 [DEBUG] Estado obrasCache:', obrasCache);
-                console.log('🔍 [DEBUG] Tipo obrasCache:', typeof obrasCache);
-                console.log('🔍 [DEBUG] Es array?:', Array.isArray(obrasCache));
-                console.log('🔍 [DEBUG] Length:', obrasCache?.length);
-                
                 // Cargar configuración GPS
                 const gpsConfigStr = localStorage.getItem('gps_config');
                 const gpsConfig = gpsConfigStr ? JSON.parse(gpsConfigStr) : DEFAULT_GPS_CONFIG;
                 
-                // ⭐ USAR CACHÉ DE OBRAS (igual que quickClocking)
+                // CARGAR OBRAS DESDE SUPABASE (igual que en quickClocking)
                 let obrasGPS;
-                
-                if (obrasCache && Array.isArray(obrasCache) && obrasCache.length > 0) {
-                    console.log('✅ [REGISTRO] Usando obras del caché:', obrasCache.length);
-                    obrasGPS = obrasCache;
-                } else {
-                    console.warn('⚠️ [REGISTRO] Caché vacío o no disponible');
-                    console.warn('⚠️ [REGISTRO] obrasCache:', obrasCache);
+                try {
+                    console.log('📍 [REGISTRO] Cargando obras desde Supabase...');
+                    const result = await window.supabaseDirect.select('worksites');
                     
-                    // Fallback 1: localStorage
-                    const obrasStr = localStorage.getItem('gps_obras');
-                    if (obrasStr) {
-                        obrasGPS = JSON.parse(obrasStr);
-                        console.log('📍 [REGISTRO] Usando localStorage:', obrasGPS.length);
+                    if (result.data && result.data.length > 0) {
+                        obrasGPS = result.data.map(w => ({
+                            id: w.id.toString(),
+                            nombre_obra: w.nombre,
+                            lat: parseFloat(w.latitude),
+                            lng: parseFloat(w.longitude),
+                            radius: w.radio_metros || 100
+                        }));
+                        console.log('✅ [REGISTRO] Obras cargadas desde Supabase:', obrasGPS.length);
                     } else {
-                        // Fallback 2: COMPANY_DATA
-                        obrasGPS = COMPANY_DATA.obras;
-                        console.log('📍 [REGISTRO] Usando COMPANY_DATA:', obrasGPS.length);
+                        throw new Error('No hay obras en Supabase');
                     }
+                } catch (error) {
+                    console.error('❌ [REGISTRO] Error cargando desde Supabase:', error);
+                    // Fallback a COMPANY_DATA
+                    obrasGPS = COMPANY_DATA.obras;
+                    console.log('⚠️ [REGISTRO] Usando fallback COMPANY_DATA');
                 }
-                
-                console.log('🔍 [DEBUG] obrasGPS final:', obrasGPS);
                 
                 // Determinar qué tipo de fichaje es
                 const userClockings = clockings.filter(c => c.userId === user.workerId);
@@ -4597,28 +4540,24 @@
                 // CRÍTICO: Determinar obra correcta según tipo
                 let obra;
                 if (type === 'in') {
-                    // ENTRADA: Usar obra seleccionada por usuario (búsqueda mejorada)
-                    obra = obrasGPS.find(o => 
-                        o.nombre_obra && 
-                        o.nombre_obra.trim().toUpperCase() === selectedObra.trim().toUpperCase()
-                    );
+                    // ENTRADA: Usar obra seleccionada por usuario (ahora selectedObra es el NOMBRE)
+                    obra = obrasGPS.find(o => o.nombre_obra === selectedObra);
                     console.log(`🚪 ENTRADA: Buscando obra "${selectedObra}"`);
-                    console.log(`🚪 ENTRADA: Obra encontrada:`, obra ? obra.nombre_obra : 'NO ENCONTRADA');
                 } else {
                     // SALIDA: Usar MISMA obra donde entró (última entrada)
                     if (lastClocking && lastClocking.worksite) {
-                        // worksite puede ser ID o nombre, intentar búsqueda mejorada
+                        // Convertir a string por seguridad
+                        const worksiteValue = String(lastClocking.worksite);
+                        
                         obra = obrasGPS.find(o => 
-                            o.id === lastClocking.worksite || 
-                            (o.nombre_obra && o.nombre_obra.trim().toUpperCase() === lastClocking.worksite.trim().toUpperCase())
+                            String(o.id) === worksiteValue || 
+                            o.nombre_obra === worksiteValue
                         );
-                        console.log(`🚪 SALIDA: Validando GPS en obra de entrada: ${obra?.nombre_obra}`);
+                        console.log(`🚪 SALIDA: Buscando obra de entrada: "${worksiteValue}"`);
+                        console.log(`🚪 SALIDA: Obra encontrada:`, obra?.nombre_obra);
                     } else {
                         // Fallback: usar obra seleccionada
-                        obra = obrasGPS.find(o => 
-                            o.nombre_obra && 
-                            o.nombre_obra.trim().toUpperCase() === selectedObra.trim().toUpperCase()
-                        );
+                        obra = obrasGPS.find(o => o.nombre_obra === selectedObra);
                         console.warn('⚠️ No se encontró obra de entrada, usando seleccionada');
                     }
                 }
@@ -6975,8 +6914,6 @@
 
         ReactDOM.render(<App />, document.getElementById('root'));
     </script>
-    
-    <!-- Eruda Console para debugging móvil -->
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>eruda.init();</script>
 </body>
