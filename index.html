@@ -4007,10 +4007,14 @@
 
             // ⭐ CARGAR OBRAS UNA SOLA VEZ AL INICIO
             useEffect(() => {
+                console.log('🚀 [INIT] useEffect de obras ejecutándose...');
+                
                 const loadObras = async () => {
                     try {
                         console.log('🔄 [INIT] Cargando obras desde Supabase...');
                         const result = await window.supabaseDirect.select('worksites');
+                        
+                        console.log('🔍 [INIT] Resultado Supabase:', result);
                         
                         if (result.data && result.data.length > 0) {
                             const obras = result.data.map(w => ({
@@ -4020,10 +4024,14 @@
                                 lng: parseFloat(w.longitude),
                                 radius: w.radio_metros || 100
                             }));
+                            
+                            console.log('📊 [INIT] Obras mapeadas:', obras);
                             setObrasCache(obras);
                             console.log('✅ [INIT] Obras cacheadas:', obras.length);
+                            console.log('✅ [INIT] setObrasCache llamado con:', obras);
                         } else {
                             console.warn('⚠️ [INIT] No data from Supabase, usando fallback');
+                            console.log('📋 [INIT] COMPANY_DATA.obras:', COMPANY_DATA.obras);
                             setObrasCache(COMPANY_DATA.obras);
                         }
                     } catch (error) {
@@ -4543,6 +4551,12 @@
                 
                 console.log('✅ GPS válido para registro:', location);
                 
+                // DEBUG: Estado del caché
+                console.log('🔍 [DEBUG] Estado obrasCache:', obrasCache);
+                console.log('🔍 [DEBUG] Tipo obrasCache:', typeof obrasCache);
+                console.log('🔍 [DEBUG] Es array?:', Array.isArray(obrasCache));
+                console.log('🔍 [DEBUG] Length:', obrasCache?.length);
+                
                 // Cargar configuración GPS
                 const gpsConfigStr = localStorage.getItem('gps_config');
                 const gpsConfig = gpsConfigStr ? JSON.parse(gpsConfigStr) : DEFAULT_GPS_CONFIG;
@@ -4550,22 +4564,26 @@
                 // ⭐ USAR CACHÉ DE OBRAS (igual que quickClocking)
                 let obrasGPS;
                 
-                if (obrasCache && obrasCache.length > 0) {
+                if (obrasCache && Array.isArray(obrasCache) && obrasCache.length > 0) {
                     console.log('✅ [REGISTRO] Usando obras del caché:', obrasCache.length);
                     obrasGPS = obrasCache;
                 } else {
-                    console.warn('⚠️ [REGISTRO] Caché vacío, usando fallback');
+                    console.warn('⚠️ [REGISTRO] Caché vacío o no disponible');
+                    console.warn('⚠️ [REGISTRO] obrasCache:', obrasCache);
+                    
                     // Fallback 1: localStorage
                     const obrasStr = localStorage.getItem('gps_obras');
                     if (obrasStr) {
                         obrasGPS = JSON.parse(obrasStr);
-                        console.log('📍 [REGISTRO] Usando localStorage');
+                        console.log('📍 [REGISTRO] Usando localStorage:', obrasGPS.length);
                     } else {
                         // Fallback 2: COMPANY_DATA
                         obrasGPS = COMPANY_DATA.obras;
-                        console.log('📍 [REGISTRO] Usando COMPANY_DATA');
+                        console.log('📍 [REGISTRO] Usando COMPANY_DATA:', obrasGPS.length);
                     }
                 }
+                
+                console.log('🔍 [DEBUG] obrasGPS final:', obrasGPS);
                 
                 // Determinar qué tipo de fichaje es
                 const userClockings = clockings.filter(c => c.userId === user.workerId);
