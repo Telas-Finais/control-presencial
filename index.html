@@ -3,33 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Presencia - Sistema Profesional V31 GPS Supabase</title>
+    <title>Control de Presencia - Sistema Profesional v1.0</title>
     <!--
     ========================================
-    VERSIÓN 31 - SUPABASE 100% INTEGRADO
+    VERSIÓN 1.0 - PRODUCCIÓN
     ========================================
     
-    SISTEMA COMPLETO FUNCIONANDO CON SUPABASE:
-    1. ✅ Trabajadores cargados desde Supabase (tabla workers)
-    2. ✅ Fichajes guardados en Supabase (tabla clockings)
-    3. ✅ Obras con GPS en Supabase (tabla worksites)
-    4. ✅ FONTOURA con coordenadas correctas: 41.653224, -8.691008
-    5. ✅ Validación GPS en tiempo real
-    6. ✅ Fallback a localStorage si Supabase falla (resiliente)
+    SISTEMA DE CONTROL DE PRESENCIA:
+    ✅ Validación GPS en tiempo real
+    ✅ Reconocimiento facial
+    ✅ Sincronización con Supabase
+    ✅ Panel administrativo completo
+    ✅ Historial y estadísticas
+    ✅ Gestión de obras y trabajadores
     
-    FUNCIONALIDAD COMPLETA:
-    - Login Trabajador/Admin/Gerente
-    - Panel de fichaje con facial recognition + GPS
-    - Dashboard completo con datos de Supabase
-    - Gestión de obras y trabajadores
-    - Sincronización automática de trabajadores a Supabase
-    
-    CREDENCIALES:
-    - Trabajador: adolfo.silva / 1234
-    - Admin: admin / Admin@2025!Segura
-    - Gerencia: gerencia / Gerencia@2025!Segura
-    
-    ESTADO: ✅ LISTO PARA PRODUCCIÓN
+    ESTADO: ✅ PRODUCCIÓN
     ========================================
     -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -3395,16 +3383,6 @@
                         usuario: worker.usuario
                     });
                 } else {
-                    // Mostrar error más detallado en desarrollo
-                    console.log('Login fallido:', {
-                        intentoUsuario: cleanUsuario,
-                        intentoPassword: cleanPassword,
-                        usuariosDisponibles: allUsers.map(u => ({
-                            usuario: u.usuario,
-                            passwordLength: (u.password || '').length,
-                            id: u.id
-                        }))
-                    });
                     setError(t('login_error'));
                 }
             };
@@ -3499,13 +3477,6 @@
                                 {t('login_button')}
                             </button>
                         </form>
-
-                        <div className="demo-credentials">
-                            <strong>Usuarios Demo:</strong><br/>
-                            Admin: admin / Admin@2025!Segura<br/>
-                            Gerencia: gerencia / Gerencia@2025!Segura<br/>
-                            Trabajador: adolfo.silva / 1234
-                        </div>
                     </div>
                 </div>
             );
@@ -4506,7 +4477,6 @@
                 // CARGAR OBRAS DESDE SUPABASE (igual que en quickClocking)
                 let obrasGPS;
                 try {
-                    console.log('📍 [REGISTRO] Cargando obras desde Supabase...');
                     const result = await window.supabaseDirect.select('worksites');
                     
                     if (result.data && result.data.length > 0) {
@@ -4517,15 +4487,12 @@
                             lng: parseFloat(w.longitude),
                             radius: w.radio_metros || 100
                         }));
-                        console.log('✅ [REGISTRO] Obras cargadas desde Supabase:', obrasGPS.length);
                     } else {
                         throw new Error('No hay obras en Supabase');
                     }
                 } catch (error) {
-                    console.error('❌ [REGISTRO] Error cargando desde Supabase:', error);
-                    // Fallback a COMPANY_DATA
+                    console.error('Error cargando obras:', error);
                     obrasGPS = COMPANY_DATA.obras;
-                    console.log('⚠️ [REGISTRO] Usando fallback COMPANY_DATA');
                 }
                 
                 // Determinar qué tipo de fichaje es
@@ -6668,7 +6635,7 @@
                     }}>
                         <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
                             <div className="app-title">Control de Presencia</div>
-                            <div style={{fontSize: '11px', color: 'rgba(255,255,255,0.6)'}}>v18.4</div>
+                            <div style={{fontSize: '11px', color: 'rgba(255,255,255,0.6)'}}>v1.0</div>
                         </div>
                         
                         <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
