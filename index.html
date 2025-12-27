@@ -207,32 +207,6 @@
         };
         
         console.log('✅ Supabase Direct API lista');
-        
-        // ⭐ CARGAR OBRAS DESDE SUPABASE AL INICIO (actualizar COMPANY_DATA)
-        (async () => {
-            try {
-                console.log('🔄 Cargando obras desde Supabase...');
-                const result = await window.supabaseDirect.select('worksites');
-                
-                if (result.data && result.data.length > 0) {
-                    // Actualizar COMPANY_DATA.obras con datos de Supabase
-                    COMPANY_DATA.obras = result.data.map(w => ({
-                        id: w.id.toString(),
-                        cliente: w.direccion || '',
-                        nombre_obra: w.nombre,
-                        lat: parseFloat(w.latitude) || null,
-                        lng: parseFloat(w.longitude) || null,
-                        radius: w.radio_metros || 100
-                    }));
-                    console.log('✅ COMPANY_DATA.obras actualizado con', COMPANY_DATA.obras.length, 'obras desde Supabase');
-                } else {
-                    console.warn('⚠️ No hay obras en Supabase, usando COMPANY_DATA por defecto');
-                }
-            } catch (error) {
-                console.error('❌ Error cargando obras desde Supabase:', error);
-                console.log('⚠️ Usando COMPANY_DATA.obras por defecto');
-            }
-        })();
     </script>
     <style>
         * {
@@ -1202,7 +1176,7 @@
         };
 
         // Datos de la empresa - TODOS LOS 33 TRABAJADORES
-        let COMPANY_DATA = {
+        const COMPANY_DATA = {
             obras: [
                 {"id": "OB001", "cliente": "TORRES IDILICAS", "nombre_obra": "FONTOURA", "lat": 41.653224, "lng": -8.691008, "radius": 100},
                 {"id": "OB002", "cliente": "BYB", "nombre_obra": "OIA VIGO", "lat": null, "lng": null, "radius": 100},
@@ -4170,8 +4144,8 @@
                             },
                             { 
                                 enableHighAccuracy: true,
-                                timeout: 30000,  // 30 segundos (aumentado para celulares)
-                                maximumAge: 0
+                                timeout: 15000,  // 15 segundos - reducido para mejor UX
+                                maximumAge: 10000  // Permitir caché de 10s
                             }
                         );
                     });
@@ -4193,7 +4167,11 @@
                         console.log('📍 Cargando obras desde Supabase...');
                         const result = await window.supabaseDirect.select('worksites');
                         
+                        console.log('🔍 Supabase result:', result);
+                        
                         if (result.data && result.data.length > 0) {
+                            console.log('📊 Raw data from Supabase:', result.data);
+                            
                             obrasGPS = result.data.map(w => ({
                                 id: w.id.toString(),
                                 nombre_obra: w.nombre,
@@ -4201,8 +4179,10 @@
                                 lng: parseFloat(w.longitude),
                                 radius: w.radio_metros || 100
                             }));
+                            console.log('✅ Obras mapeadas:', obrasGPS);
                             console.log('✅ Obras cargadas desde Supabase:', obrasGPS.length);
                         } else {
+                            console.warn('⚠️ No data from Supabase');
                             throw new Error('No hay obras en Supabase');
                         }
                     } catch (error) {
@@ -4211,15 +4191,23 @@
                         const obrasStr = localStorage.getItem('gps_obras');
                         obrasGPS = obrasStr ? JSON.parse(obrasStr) : COMPANY_DATA.obras;
                         console.log('⚠️ Usando fallback localStorage/COMPANY_DATA');
+                        console.log('📋 Obras fallback:', obrasGPS);
                     }
                     
                     // Buscar obra por NOMBRE (ya que ahora selectedObra guarda el nombre)
                     console.log('🔍 Buscando obra:', selectedObra);
                     console.log('📋 Obras disponibles:', obrasGPS.map(o => o.nombre_obra));
                     
-                    const selectedObraGPS = obrasGPS.find(o => o.nombre_obra === selectedObra);
+                    // Búsqueda mejorada: case-insensitive + trim
+                    const selectedObraGPS = obrasGPS.find(o => 
+                        o.nombre_obra && 
+                        o.nombre_obra.trim().toUpperCase() === selectedObra.trim().toUpperCase()
+                    );
                     
                     if (!selectedObraGPS) {
+                        console.error('❌ Obra no encontrada');
+                        console.error('Buscando:', selectedObra);
+                        console.error('Disponibles:', obrasGPS.map(o => `"${o.nombre_obra}"`));
                         throw new Error(`No se encontró la obra "${selectedObra}"\n\nIntenta de nuevo.`);
                     }
                     
@@ -6928,11 +6916,8 @@
         ReactDOM.render(<App />, document.getElementById('root'));
     </script>
     
-    <!-- ⭐ ERUDA - Consola de desarrollo móvil ⭐ -->
+    <!-- Eruda Console para debugging móvil -->
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-    <script>
-        eruda.init();
-        console.log('🔧 Eruda inicializado');
-    </script>
+    <script>eruda.init();</script>
 </body>
 </html>
