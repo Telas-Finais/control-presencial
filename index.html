@@ -1146,7 +1146,8 @@
             if (faceApiModelsLoaded) return true;
             
             try {
-                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+                // Usar modelos compatibles con face-api.js@0.22.2
+                const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
                 
                 await Promise.all([
                     faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
@@ -6403,7 +6404,7 @@
 
             const handleClocking = async (clocking) => {
                 // MODO DEBUG: Mostrar alertas visibles para diagnóstico
-                const DEBUG_MODE = false; // DEBUG desactivado para producción
+                const DEBUG_MODE = false; // ✅ Producción - Sin alertas debug
                 
                 // Mostrar indicador de guardado
                 showNotification('⏳ Guardando fichaje en servidor...', 'info');
